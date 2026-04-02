@@ -40,12 +40,7 @@
         .result-box { margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; }
         .pdf-card { margin-top: 15px; padding: 14px; border: 1px solid #cfd8dc; border-radius: 8px; background: #fff; }
         .pdf-title { font-size: 16px; font-weight: bold; margin-bottom: 8px; color: #0b5ed7; }
-
-        /* নতুন যোগ করা স্টাইল — শুধুমাত্র লোডিং প্রোগ্রেসের জন্য */
-        .progress-container { width: 100%; max-width: 400px; background: #ddd; border-radius: 20px; margin: 20px auto; height: 20px; overflow: hidden; }
-        .progress-bar { height: 100%; background: linear-gradient(90deg, #0b5ed7, #28a745); border-radius: 20px; transition: width 1s linear; }
-        .time-remaining { color: white; font-size: 22px; font-weight: bold; margin-top: 10px; text-align: center; }
-
+        
         @media (max-width: 768px) {
             .container { flex-direction: column; }
             .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #ddd; }
@@ -139,11 +134,6 @@
         let otpMobile = "";
         let otpExpiresAt = 0;
 
-        // === নতুন যোগ করা ভেরিয়েবল (এক্সেস লোডের জন্য) ===
-        let accessLoaded = false;
-        let loadTimer = null;
-        const LOAD_DURATION = 3 * 60 * 60 * 1000; // ৩ ঘণ্টা (২/৩ ঘণ্টা অনুযায়ী আপনি চাইলে পরে পরিবর্তন করতে পারবেন)
-
         function showLoading() { document.getElementById("loadingOverlay").style.display = "flex"; }
         function hideLoading() { document.getElementById("loadingOverlay").style.display = "none"; }
 
@@ -203,7 +193,7 @@
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok || !data.success) throw new Error(data.message || "OTP পাঠানো যায়নি");
-            return data;   
+            return data;   // ← এখান থেকে server এর OTP পাওয়া যাবে
         }
 
         document.getElementById("requestOtpBtn").addEventListener("click", async () => {
@@ -225,7 +215,7 @@
             try {
                 const data = await sendOtpByApi(mobile);
                 
-                generatedOtp = data.otp;           
+                generatedOtp = data.otp;           // ← সার্ভার থেকে আসা আসল OTP
                 otpMobile = mobile;
                 otpExpiresAt = Date.now() + (5 * 60 * 1000);
                 lastOtpRequestTime = Date.now();
@@ -268,109 +258,15 @@
 
                     document.getElementById("otpContainer").style.display = "none";
                     document.getElementById("dashboard").style.display = "block";
-
-                    // === আপনার চাওয়া ফিচার: ড্যাশবোর্ডে ঢোকার সাথে সাথে "এক্সেস লোড করুন" অপশন দেখানো ===
-                    accessLoaded = false;
-                    document.getElementById("formArea").innerHTML = `
-                        <h3 style="color:#0b5ed7; text-align:center; margin-bottom:20px;">পোর্টাল এক্সেস লোড করুন</h3>
-                        <button onclick="startAccessLoad()" class="btn" style="width:100%; font-size:24px; padding:30px 20px; background:#28a745; box-shadow:0 4px 15px rgba(40,167,69,0.4);">
-                            🚀 এক্সেস লোড করুন
-                        </button>
-                        <p style="text-align:center; margin-top:25px; color:#555; font-size:17px; line-height:1.5;">
-                            ড্যাশবোর্ড সম্পূর্ণ এক্সেস পেতে উপরের বাটনে চাপুন।<br>
-                            এটি রিয়েল টাইমে প্রায় ৩ ঘণ্টা সময় নেবে।
-                        </p>
-                    `;
-                    document.getElementById("accessMessage").innerHTML = "";
                 }, 1500);
             } else {
                 otpMsg.innerHTML = `<span class="error">OTP ভুল হয়েছে। আবার চেষ্টা করুন।</span>`;
             }
         });
 
-        // === নতুন ফাংশন: ৩ ঘণ্টার রিয়েল লোডিং শুরু করা ===
-        window.startAccessLoad = function() {
-            const overlay = document.getElementById("loadingOverlay");
-            const innerDiv = overlay.querySelector("div");
-            
-            // লোডিং ওভারলে প্রোগ্রেস + কাউন্টডাউন যোগ করা
-            innerDiv.innerHTML = `
-                <div class="spinner" style="width:80px;height:80px;"></div>
-                <div class="loading-text" style="font-size:26px;margin-bottom:20px;">এক্সেস লোড হচ্ছে...</div>
-                <div class="progress-container">
-                    <div id="progressBar" class="progress-bar" style="width:0%;"></div>
-                </div>
-                <div id="timeRemaining" class="time-remaining">৩ ঘণ্টা বাকি</div>
-                <p style="color:white; text-align:center; margin-top:15px; max-width:400px;">
-                    অনুগ্রহ করে ব্রাউজার বন্ধ করবেন না।<br>
-                    সময় শেষ হলে অটোমেটিক পোর্টাল চালু হয়ে যাবে।
-                </p>
-            `;
-
-            overlay.style.display = "flex";
-
-            const startTime = Date.now();
-
-            loadTimer = setInterval(() => {
-                const elapsed = Date.now() - startTime;
-                let progress = Math.min((elapsed / LOAD_DURATION) * 100, 100);
-                
-                const progressEl = document.getElementById("progressBar");
-                if (progressEl) progressEl.style.width = `${progress}%`;
-
-                const remainingMs = Math.max(0, LOAD_DURATION - elapsed);
-                const hours = Math.floor(remainingMs / (3600 * 1000));
-                const minutes = Math.floor((remainingMs % (3600 * 1000)) / (60 * 1000));
-                const seconds = Math.floor((remainingMs % 60000) / 1000);
-
-                const timeText = `${hours} ঘণ্টা ${minutes} মিনিট ${seconds} সেকেন্ড বাকি`;
-                const timeEl = document.getElementById("timeRemaining");
-                if (timeEl) timeEl.textContent = timeText;
-
-                // সময় শেষ হলে লোডিং বন্ধ + এক্সেস চালু
-                if (elapsed >= LOAD_DURATION) {
-                    clearInterval(loadTimer);
-                    accessLoaded = true;
-                    overlay.style.display = "none";
-
-                    // লোডিং ওভারলে আবার আসল অবস্থায় ফিরিয়ে দেয়া
-                    innerDiv.innerHTML = `<div class="spinner"></div><div class="loading-text">প্রক্রিয়া চলছে...</div>`;
-
-                    // ড্যাশবোর্ডকে স্বাভাবিক অবস্থায় ফিরিয়ে দেয়া
-                    document.getElementById("formArea").innerHTML = "<h3>একটি অপশন নির্বাচন করুন</h3>";
-                    document.getElementById("accessMessage").innerHTML = `
-                        <div style="color: #28a745; font-weight: bold; padding: 20px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; text-align:center;">
-                            ✅ এক্সেস লোড সম্পূর্ণ হয়েছে!<br>
-                            এখন আপনি পোর্টালের সকল সুবিধা ব্যবহার করতে পারবেন।
-                        </div>
-                    `;
-
-                    // ১০ সেকেন্ড পর মেসেজ সরিয়ে দেয়া (অপশনাল)
-                    setTimeout(() => {
-                        if (document.getElementById("accessMessage").innerHTML.includes("✅")) {
-                            document.getElementById("accessMessage").innerHTML = "";
-                        }
-                    }, 10000);
-                }
-            }, 1000);
-        };
-
-        function logout() { 
-            if (loadTimer) clearInterval(loadTimer);
-            location.reload(); 
-        }
+        function logout() { location.reload(); }
 
         function showForm(type) {
-            // === এক্সেস না লোড হলে কাজ শুরু করতে দেবে না ===
-            if (!accessLoaded) {
-                document.getElementById("accessMessage").innerHTML = `
-                    <div style="color: red; font-weight: bold; padding: 20px; border: 1px solid #f5c6cb; background: #f8d7da; border-radius: 8px; text-align:center;">
-                        প্রথমে "এক্সেস লোড করুন" বাটনে চাপ দিয়ে ৩ ঘণ্টার লোডিং সম্পূর্ণ করুন।
-                    </div>
-                `;
-                return;
-            }
-
             document.getElementById("accessMessage").innerHTML = "";
             let title = "", fields = "";
 
